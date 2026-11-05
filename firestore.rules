@@ -1,0 +1,41 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for security validation
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profile and user-scoped data tree
+    // All documents under /users/{userId} are strictly private to that user
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      // User research sessions, search history, and saved claims
+      match /sessions/{sessionId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /preferences/{prefId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Any nested sub-collections under the user document
+      match /{allChildren=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Default deny-all rule for all other paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

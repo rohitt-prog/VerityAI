@@ -1,24 +1,31 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { sampleQueries, mockHistorySessions, initialSettings, suggestedPrompts } from './data/mockData';
 import type { ResearchQueryItem, AppSettings } from './types';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/useAuth';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { SettingsModal } from './components/layout/SettingsModal';
+import { AuthModal } from './components/auth/AuthModal';
 import { QuestionInput } from './components/research/QuestionInput';
 import { AnswerView } from './components/research/AnswerView';
 import { EmptyState } from './components/research/EmptyState';
 import { LoadingState } from './components/research/LoadingState';
+import { saveUserSession } from './services/firestore';
 import './App.css';
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [activeQuery, setActiveQuery] = useState<ResearchQueryItem>(sampleQueries[0]);
   const [viewState, setViewState] = useState<'answered' | 'empty' | 'loading'>('answered');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(initialSettings);
   const [pendingQueryText, setPendingQueryText] = useState(sampleQueries[0].query);
 
-  // Fix 5: Focus management ref for menu trigger
+  const { currentUser } = useAuth();
+
+  // Focus management ref for menu trigger
   const sidebarToggleRef = useRef<HTMLButtonElement | null>(null);
   const prevSidebarOpenRef = useRef(isSidebarOpen);
 
@@ -45,9 +52,8 @@ export const App: React.FC = () => {
     setPendingQueryText(queryText);
     setViewState('loading');
 
-    // Simulate 2.5-second verification pipeline turnaround
+    // Simulate 2.4-second verification turnaround
     setTimeout(() => {
-      // Find matching or switch between sample queries for rich demo
       const nextQuery =
         sampleQueries.find((q) =>
           q.query.toLowerCase().includes(queryText.toLowerCase().slice(0, 15))
@@ -59,6 +65,18 @@ export const App: React.FC = () => {
 
       setActiveQuery(nextQuery);
       setViewState('answered');
+
+      // If user is authenticated, asynchronously sync session to Firestore (marked as prototype simulation)
+      if (currentUser) {
+        saveUserSession(currentUser.uid, {
+          title: queryText.slice(0, 48),
+          query: queryText,
+          claims_count: nextQuery.claims.length,
+          is_mock: true,
+        }).catch((err) => {
+          console.warn('Firestore background session save skipped:', err);
+        });
+      }
     }, 2400);
   };
 
@@ -73,6 +91,7 @@ export const App: React.FC = () => {
     <div className={`verity-app-shell theme-${settings.uiTheme}`}>
       <Header
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenAuth={() => setIsAuthOpen(true)}
         onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
         isSidebarOpen={isSidebarOpen}
         sidebarToggleRef={sidebarToggleRef}
@@ -125,8 +144,22 @@ export const App: React.FC = () => {
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
         onUpdateSettings={setSettings}
+        onOpenAuth={() => setIsAuthOpen(true)}
+      />
+
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
       />
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 };
 

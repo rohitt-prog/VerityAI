@@ -1,10 +1,10 @@
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "VerityAI"
-    VERSION: str = "0.1.0"
+    VERSION: str = "0.2.0"
     API_PREFIX: str = "/api"
 
     # CORS Origins
@@ -13,6 +13,11 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
         "http://localhost:3000",
     ]
+
+    # Firebase Admin SDK Configuration
+    FIREBASE_PROJECT_ID: Optional[str] = None
+    FIREBASE_CREDENTIALS_PATH: Optional[str] = "./secrets/service-account.json"
+    FIREBASE_EMULATOR_HOST: Optional[str] = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
